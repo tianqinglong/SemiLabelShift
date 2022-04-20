@@ -52,7 +52,6 @@ results_output <- mclapply(data_list_mc, function(dataList) {
   tData <- dataList$tDat
   piVal <- n/(n+m)
   
-  # Use estimated version of E_s(\cdot) and E_s(\cdot|x)
   ## For E_s(\cdot): use empirical distribution of Y on the source
   ispar <- F
   parameters <- sData[,"Y"]
@@ -75,8 +74,37 @@ results_output <- mclapply(data_list_mc, function(dataList) {
               Cp2 = cp2))
 },
 mc.cores = 12)
-mean(sapply(results_output, function(out) {out$Cp1}))
-mean(sapply(results_output, function(out) {out$Cp2}))
+# mean(sapply(results_output, function(out) {out$Cp1}))
+# mean(sapply(results_output, function(out) {out$Cp2}))
 
+saveRDS(results_output, file = paste("n",n,"ratio",m_div_n,"_correct.rds", sep = ""))
 #################################
-saveRDS(results_output, file = paste("n",n,"ratio",m_div_n,".rds", sep = ""))
+
+results_output <- mclapply(data_list_mc, function(dataList) {
+  sData <- dataList$sDat
+  tData <- dataList$tDat
+  piVal <- n/(n+m)
+  
+  ## For E_s(\cdot): use empirical distribution of Y on the source
+  ispar <- T
+  parameters <- list(mu = Mu_Y_S, sigma = Sig_Y_S, num_of_repl = 18)
+  ## For E_s(\cdot|x): use correctly specified model of f_s(y|x)
+  coef_y_x_s <- coef_y_x_s_true
+  sigma_y_x_s <- sqrt(var_y_x_s_true)
+  
+  estBeta <- optim(beta_rho, EstimateBetaFunc,
+                   sData = sData, tData = tData, piVal = piVal, tDat_ext = tData,
+                   coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar, parameters = parameters)
+  betaHat <- estBeta$par
+  sdVec <- EstimateBetaVarFunc(betaHat, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters)
+  cp1 <- (trueBetaRho[1] >= betaHat[1]-1.96*sdVec[1]) && (trueBetaRho[1] <= betaHat[1]+1.96*sdVec[1])
+  cp2 <- (trueBetaRho[2] >= betaHat[2]-1.96*sdVec[2]) && (trueBetaRho[2] <= betaHat[2]+1.96*sdVec[2])
+  
+  return(list(Estimated = estBeta$par,
+              Sd = sdVec,
+              Cp1 = cp1,
+              Cp2 = cp2))
+},
+mc.cores = 12)
+#################################
+saveRDS(results_output, file = paste("n",n,"_ratio",m_div_n,"_true.rds", sep = ""))
