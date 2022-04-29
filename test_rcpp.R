@@ -180,3 +180,34 @@ ComputeEfficientScore_CPP(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
 ComputeEfficientScore(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
                       sigma_y_x_s, ispar, sData[,"Y"]) %>% sd
 ################################################
+ispar <- T
+EstimateBetaFunc_CPP(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                     sigma_y_x_s, ispar, parameters, xList, wList)
+EstimateBetaFunc(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                 sigma_y_x_s, ispar, parameters)
+microbenchmark(EstimateBetaFunc_CPP(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                                    sigma_y_x_s, ispar, parameters, xList, wList),
+               EstimateBetaFunc(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                                sigma_y_x_s, ispar, parameters))
+
+ispar <- F
+EstimateBetaFunc_CPP(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                     sigma_y_x_s, ispar, parameters, xList, wList)
+EstimateBetaFunc(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                 sigma_y_x_s, ispar, sData[,"Y"])
+microbenchmark(EstimateBetaFunc_CPP(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                                    sigma_y_x_s, ispar, parameters, xList, wList),
+               EstimateBetaFunc(beta_rho, sData, tData, piVal, tData, coef_y_x_s,
+                                sigma_y_x_s, ispar, sData[,"Y"]))
+################################################
+ispar <- T
+optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVal,
+      tDat_ext = tData, coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar,
+      parameters = parameters, xList = xList, wList = wList) -> fop
+optim(beta_rho, EstimateBetaFunc, sData = sData, tData = tData, piVal = piVal,
+      tDat_ext = tData, coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar,
+      parameters = parameters)
+EstimateBetaVarFunc(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters)
+EstimateBetaVarFunc_CPP(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
+microbenchmark(EstimateBetaVarFunc(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters),
+               EstimateBetaVarFunc_CPP(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList))
