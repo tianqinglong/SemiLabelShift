@@ -1,7 +1,7 @@
 library(fastGHQuad)
 # This function computes $E_s{\rho^{1 or 2}(y)|x}$ for the internal x, coef_y_x_s and sigma_y must be estimated using external data
 E_S_RHO_X <- function(beta_rho, rho_pwr, x_mat_no_intercept, coef_y_x_s, sigma_y_x_s,
-                      num_of_replications = 18) {
+                      num_of_replications = 10) {
   coef_y_x_s <- matrix(coef_y_x_s, ncol = 1)
   beta_rho <- matrix(beta_rho, ncol = 1)
   
@@ -113,7 +113,7 @@ E_T_D_LOG_RHO_DIV_D_BETA <- function(beta_rho, ispar, parameters, c_ps) {
 }
 
 # This function computes $\E_t(d\log\Rho/d\beta|x)$, x might be internal/external
-E_T_D_LOG_RHO_DIV_D_BETA_X <- function(beta_rho, x_mat_no_intercept, coef_y_x_s, sigma_y_x_s, e_s_rho_x, num_of_rep = 18) {
+E_T_D_LOG_RHO_DIV_D_BETA_X <- function(beta_rho, x_mat_no_intercept, coef_y_x_s, sigma_y_x_s, e_s_rho_x, num_of_rep = 10) {
   x_mat <- cbind(1, x_mat_no_intercept)
   y_x_mean <- c(x_mat %*% coef_y_x_s)
   beta_rho <- matrix(beta_rho, ncol = 1)

@@ -26,7 +26,7 @@ trueBetaRho <- Compute_Rho_Parameters(Mu_Y_T, Sig_Y_T, Mu_YX, SigMat_YX)
 # Sample size
 
 n <- 500
-m <- 500
+m <- 2000
 
 # Extra Data (or CV)
 
