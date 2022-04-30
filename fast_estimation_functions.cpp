@@ -312,4 +312,3 @@ NumericVector EstimateBetaVarFunc_CPP(NumericVector beta_rho, NumericMatrix sDat
   return outVec;
 }
 
-

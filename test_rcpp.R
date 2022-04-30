@@ -217,3 +217,6 @@ optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVa
       tDat_ext = tData, coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar,
       parameters = parameters, xList = xList, wList = wList, weights = TRUE) -> fop
 fop$par
+
+ComputeRandomizedWeightBootstrap(beta_rho, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar,
+                                 parameters, xList, wList)
