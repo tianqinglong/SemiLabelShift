@@ -3,11 +3,12 @@
 # (make sure they agree with the R versions)
 ################################################
 
+library(Rcpp)
 library(fastGHQuad)
 library(microbenchmark)
 source("data_generating_functions.R")
 source("estimation_functions.R")
-Rcpp::sourceCpp("fast_estimation_functions.cpp")
+sourceCpp("fast_estimation_functions.cpp")
 
 ################################################
 # Hyper-parameters
@@ -211,3 +212,8 @@ EstimateBetaVarFunc(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s
 EstimateBetaVarFunc_CPP(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
 microbenchmark(EstimateBetaVarFunc(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters),
                EstimateBetaVarFunc_CPP(fop$par, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList))
+
+optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVal,
+      tDat_ext = tData, coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar,
+      parameters = parameters, xList = xList, wList = wList, weights = TRUE) -> fop
+fop$par
