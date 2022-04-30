@@ -36,8 +36,8 @@ Sig_Y_S_hat <- sd(sData[,"Y"])
 ################################################
 m <- mnratio*n
 beta_rho <- trueBetaRho
-B1 <- 5 # Monte-Carlo Sample Size
-B2 <- 10 # Bootstrap (Perturbation Size)
+B1 <- 10 # Monte-Carlo Sample Size
+B2 <- 100 # Bootstrap (Perturbation Size)
 
 gh_num <- 10
 ghxw <- gaussHermiteData(gh_num)
@@ -79,11 +79,12 @@ results_output <- mclapply(data_list_mc, function(dataList) {
            trueBetaRho[2] >= CI2[1,2] & trueBetaRho[2] <= CI2[2,2])
   
   return(list(
+    TrueBeta = trueBetaRho,
     BetaHat = betaHat,
     Sd = betaSd1,
     CI1 = CI1,
-    CI2 = CI2,
     CP1 = CP1,
+    CI2 = CI2,
     CP2 = CP2
   ))
 }, mc.cores = detectCores())
