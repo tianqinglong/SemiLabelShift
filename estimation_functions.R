@@ -224,3 +224,21 @@ EstimateBetaVarFunc <- function(beta_rho, sData, tData, piVal, tDat_ext, coef_y_
   
   return(sqrt(diag(out)))
 }
+
+# This function repeat the pertubations
+ComputeRandomizedWeightBootstrap <- function(beta_rho, sData, tData, piVal, tDat_ext,
+                                             coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList, B2 = 1000) {
+  i <- 1
+  outMat <- matrix(nrow = B2, ncol = 2)
+  
+  while(i <= B2)
+  {
+    optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVal,
+          tDat_ext = tDat_ext, coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar,
+          parameters = parameters, xList = xList, wList = wList, weights = TRUE) -> fop
+    fop$par -> outMat[i,]
+    i <- i+1
+  }
+  
+  return(outMat)
+}
