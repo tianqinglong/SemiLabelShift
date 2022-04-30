@@ -27,17 +27,17 @@ coef_y_x_s_true <- c(yx_dist$Beta0, yx_dist$Beta1)
 var_y_x_s_true <- yx_dist$VarYX
 sigma_y_x_s_true <- sqrt(var_y_x_s_true)
 
-fityx <- lm(Y~., data = as.data.frame(sData))
-coef_y_x_s_hat <- coef(fityx)
-sigma_y_x_s_hat <- sigma(fityx)
-
-Mu_Y_S_hat <- mean(sData[,"Y"])
-Sig_Y_S_hat <- sd(sData[,"Y"])
+# fityx <- lm(Y~., data = as.data.frame(sData))
+# coef_y_x_s_hat <- coef(fityx)
+# sigma_y_x_s_hat <- sigma(fityx)
+# 
+# Mu_Y_S_hat <- mean(sData[,"Y"])
+# Sig_Y_S_hat <- sd(sData[,"Y"])
 ################################################
 m <- mnratio*n
 beta_rho <- trueBetaRho
 B1 <- 10 # Monte-Carlo Sample Size
-B2 <- 100 # Bootstrap (Perturbation Size)
+B2 <- 10 # Bootstrap (Perturbation Size)
 
 gh_num <- 10
 ghxw <- gaussHermiteData(gh_num)
@@ -49,13 +49,12 @@ data_list_mc <- mclapply(1:B1, function(x) {
   Generate_Dat(n, m, Mu_YX, SigMat_YX, Mu_Y_T, Sig_Y_T)
 }, mc.cores = detectCores())
 ################################################
-ispar <- T
-parameters <- list(y_vec = sData[,"Y"], mu = Mu_Y_S, sigma = Sig_Y_S, xList = xList, wList= wList)
-
 results_output <- mclapply(data_list_mc, function(dataList) {
   sData <- dataList$sDat
   tData <- dataList$tDat
   piVal <- n/(n+m)
+  ispar <- T
+  parameters <- list(y_vec = sData[,"Y"], mu = Mu_Y_S, sigma = Sig_Y_S, xList = xList, wList= wList)
   
   betaHat <- optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVal,
                    tDat_ext = tData, coef_y_x_s = coef_y_x_s_true, sigma_y_x_s = sigma_y_x_s_true, ispar = ispar,
