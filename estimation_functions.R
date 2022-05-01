@@ -225,6 +225,25 @@ EstimateBetaVarFunc <- function(beta_rho, sData, tData, piVal, tDat_ext, coef_y_
   return(sqrt(diag(out)))
 }
 
+# This function is for the inference of Beta
+EstimateBetaVarCenterFunc <- function(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList) {
+  SEffMat <- ComputeEfficientScore_CPP(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
+  
+  SEffMat[,1] <- SEffMat[,1]-mean(SEffMat[,1])
+  SEffMat[,2] <- SEffMat[,2]-mean(SEffMat[,2])
+  
+  num_of_total <- nrow(sData)+nrow(tData)
+  out <- matrix(0, ncol = 2, nrow = 2)
+  for (i in 1:num_of_total) {
+    tmp <- matrix(SEffMat[i,], ncol = 1)
+    out <- out + tmp %*% t(tmp)
+  }
+  out <- out/num_of_total
+  out <- solve(out)/num_of_total
+  
+  return(sqrt(diag(out)))
+}
+
 # This function repeat the pertubations
 ComputeRandomizedWeightBootstrap <- function(beta_rho, sData, tData, piVal, tDat_ext,
                                              coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList, B2 = 1000) {

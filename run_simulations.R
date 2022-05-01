@@ -1,18 +1,16 @@
-#################################
+################################################
 library(parallel)
+library(Rcpp)
+library(fastGHQuad)
 source("data_generating_functions.R")
 source("estimation_functions.R")
-#################################
-
-# There are len(n_vec)*len(m_div_n_vec) combinations; each combination should run in a separate task
-
-n_vec <- c(500, 600, 700, 800, 900, 1000)
-m_div_n_vec <- c(1, 2, 3, 4, 5)
-
-#################################
-
-# Data generating setting (fixed for the setting)
-
+sourceCpp("fast_estimation_functions.cpp")
+################################################
+# Factors
+n <- 500
+mnratio <- 3
+################################################
+# Data Generating Parameters
 Mu_YX <- c(2,1,1,1)
 SigMat_YX <- ar1_cor(4, 0.9)
 SigMat_YX[-1,-1] <- ar1_cor(3, 0.3)
@@ -27,84 +25,66 @@ trueBetaRho <- Compute_Rho_Parameters(Mu_Y_T, Sig_Y_T, Mu_YX, SigMat_YX)
 yx_dist <- Compute_Y_Given_X(Mu_YX, SigMat_YX)
 coef_y_x_s_true <- c(yx_dist$Beta0, yx_dist$Beta1)
 var_y_x_s_true <- yx_dist$VarYX
-#################################
+sigma_y_x_s_true <- sqrt(var_y_x_s_true)
 
-# Monte Carlo Sample Size
-
-B <- 1000
-
-#################################
-
-n <- n_vec[1]
-m_div_n <- m_div_n_vec[1]
-m <- m_div_n*n
+# fityx <- lm(Y~., data = as.data.frame(sData))
+# coef_y_x_s_hat <- coef(fityx)
+# sigma_y_x_s_hat <- sigma(fityx)
+# 
+# Mu_Y_S_hat <- mean(sData[,"Y"])
+# Sig_Y_S_hat <- sd(sData[,"Y"])
+################################################
+m <- mnratio*n
 beta_rho <- trueBetaRho
+B1 <- 10 # Monte-Carlo Sample Size
+B2 <- 10 # Bootstrap (Perturbation Size)
 
-#################################
-
-data_list_mc <- mclapply(1:B, function(x) {
+gh_num <- 10
+ghxw <- gaussHermiteData(gh_num)
+xList <- ghxw$x
+wList <- ghxw$w
+################################################
+set.seed(888)
+data_list_mc <- mclapply(1:B1, function(x) {
   Generate_Dat(n, m, Mu_YX, SigMat_YX, Mu_Y_T, Sig_Y_T)
-},
-mc.cores = 12)
-
+}, mc.cores = detectCores())
+################################################
 results_output <- mclapply(data_list_mc, function(dataList) {
   sData <- dataList$sDat
   tData <- dataList$tDat
   piVal <- n/(n+m)
-  
-  ## For E_s(\cdot): use empirical distribution of Y on the source
-  ispar <- F
-  parameters <- sData[,"Y"]
-  ## For E_s(\cdot|x): use correctly specified model of f_s(y|x)
-  fityx <- lm(Y~., data = as.data.frame(sData))
-  coef_y_x_s <- coef(fityx)
-  sigma_y_x_s <- sigma(fityx)
-  
-  estBeta <- optim(beta_rho, EstimateBetaFunc,
-                   sData = sData, tData = tData, piVal = piVal, tDat_ext = tData,
-                   coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar, parameters = parameters)
-  betaHat <- estBeta$par
-  sdVec <- EstimateBetaVarFunc(betaHat, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters)
-  cp1 <- (trueBetaRho[1] >= betaHat[1]-1.96*sdVec[1]) && (trueBetaRho[1] <= betaHat[1]+1.96*sdVec[1])
-  cp2 <- (trueBetaRho[2] >= betaHat[2]-1.96*sdVec[2]) && (trueBetaRho[2] <= betaHat[2]+1.96*sdVec[2])
-  
-  return(list(Estimated = estBeta$par,
-              Sd = sdVec,
-              Cp1 = cp1,
-              Cp2 = cp2))
-},
-mc.cores = 12)
-# mean(sapply(results_output, function(out) {out$Cp1}))
-# mean(sapply(results_output, function(out) {out$Cp2}))
-
-saveRDS(results_output, file = paste("n",n,"ratio",m_div_n,"_correct.rds", sep = ""))
-#################################
-
-results_output <- mclapply(data_list_mc, function(dataList) {
-  sData <- dataList$sDat
-  tData <- dataList$tDat
-  piVal <- n/(n+m)
-  
-  ## For E_s(\cdot): use empirical distribution of Y on the source
   ispar <- T
-  parameters <- list(mu = Mu_Y_S, sigma = Sig_Y_S, num_of_repl = 18)
-  ## For E_s(\cdot|x): use correctly specified model of f_s(y|x)
-  coef_y_x_s <- coef_y_x_s_true
-  sigma_y_x_s <- sqrt(var_y_x_s_true)
+  parameters <- list(y_vec = sData[,"Y"], mu = Mu_Y_S, sigma = Sig_Y_S, xList = xList, wList= wList)
   
-  estBeta <- optim(beta_rho, EstimateBetaFunc,
-                   sData = sData, tData = tData, piVal = piVal, tDat_ext = tData,
-                   coef_y_x_s = coef_y_x_s, sigma_y_x_s = sigma_y_x_s, ispar = ispar, parameters = parameters)
-  betaHat <- estBeta$par
-  sdVec <- EstimateBetaVarFunc(betaHat, sData, tData, piVal, tData, coef_y_x_s, sigma_y_x_s, ispar, parameters)
-  cp1 <- (trueBetaRho[1] >= betaHat[1]-1.96*sdVec[1]) && (trueBetaRho[1] <= betaHat[1]+1.96*sdVec[1])
-  cp2 <- (trueBetaRho[2] >= betaHat[2]-1.96*sdVec[2]) && (trueBetaRho[2] <= betaHat[2]+1.96*sdVec[2])
+  betaHat <- optim(beta_rho, EstimateBetaFunc_CPP, sData = sData, tData = tData, piVal = piVal,
+                   tDat_ext = tData, coef_y_x_s = coef_y_x_s_true, sigma_y_x_s = sigma_y_x_s_true, ispar = ispar,
+                   parameters = parameters, xList = xList, wList = wList)
+  betaHat <- betaHat$par
+  betaSd1 <- EstimateBetaVarFunc_CPP(betaHat, sData, tData, piVal, tData, coef_y_x_s_true, sigma_y_x_s_true, ispar, parameters, xList, wList)
+  betaBoot <- ComputeRandomizedWeightBootstrap(beta_rho, sData, tData, piVal, tData, coef_y_x_s_true, sigma_y_x_s_true, ispar, parameters, xList, wList, B2 = B2)
   
-  return(list(Estimated = estBeta$par,
-              Sd = sdVec,
-              Cp1 = cp1,
-              Cp2 = cp2))
-},
-mc.cores = 12)
-#################################
-saveRDS(results_output, file = paste("n",n,"_ratio",m_div_n,"_true.rds", sep = ""))
+  CI1 <- matrix(betaHat, nrow = 2, ncol = 2, byrow = T)
+  Sd1 <- matrix(betaSd1, nrow = 2, ncol = 2, byrow = T)
+  Sd1[1,] <- -1.96*Sd1[1,]
+  Sd1[2,] <- 1.96*Sd1[2,]
+  CI1 <- CI1+Sd1
+  
+  CI2 <- matrix(nrow = 2, ncol = 2)
+  CI2 <- apply(betaBoot, MARGIN = 2, quantile, probs = c(0.025, 0.975))
+  
+  CP1 <- c(trueBetaRho[1] >= CI1[1,1] & trueBetaRho[1] <= CI1[2,1],
+           trueBetaRho[2] >= CI1[1,2] & trueBetaRho[2] <= CI1[2,2])
+  CP2 <- c(trueBetaRho[1] >= CI2[1,1] & trueBetaRho[1] <= CI2[2,1],
+           trueBetaRho[2] >= CI2[1,2] & trueBetaRho[2] <= CI2[2,2])
+  
+  return(list(
+    TrueBeta = trueBetaRho,
+    BetaHat = betaHat,
+    Sd = betaSd1,
+    CI1 = CI1,
+    CP1 = CP1,
+    CI2 = CI2,
+    CP2 = CP2
+  ))
+}, mc.cores = detectCores())
+################################################
