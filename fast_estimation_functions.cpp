@@ -344,3 +344,94 @@ NumericVector EstimateBetaVarFunc_CPP(NumericVector beta_rho, NumericMatrix sDat
   return outVec;
 }
 
+// [[Rcpp::export]]
+NumericMatrix E_S_RHO2_PSI_X(NumericVector beta_rho, NumericMatrix tData, NumericVector coef_y_x_s,
+                             double sigma_y_x_s, NumericVector xList, NumericVector wList) {
+  int i, j;
+  int num_row = tData.nrow(), num_col = tData.ncol(), ghpnt = xList.length();
+  NumericVector mean_y_x_s(num_row);
+  NumericMatrix e_s_rho2_psi_x(num_row, 2);
+  
+  for (i=0; i<num_row; i++) {
+    mean_y_x_s(i) = coef_y_x_s(0);
+    for (j=0; j<num_col; j++) {
+      mean_y_x_s(i) += coef_y_x_s(j+1)*tData(i,j);
+    }
+  }
+  
+  double yTemp;
+  for (i=0; i<num_row; i++) {
+    yTemp = 0;
+    for (j=0; j<ghpnt; j++) {
+      yTemp = sqrt(2)*sigma_y_x_s*xList(j)+mean_y_x_s(i);
+      e_s_rho2_psi_x(i,0) += yTemp*exp(2*yTemp*beta_rho(0)+2*yTemp*yTemp*beta_rho(1))*wList(j)/sqrt(3.1415926);
+      e_s_rho2_psi_x(i,1) += yTemp*yTemp*exp(2*yTemp*beta_rho(0)+2*yTemp*yTemp*beta_rho(1))*wList(j)/sqrt(3.1415926);
+    }
+  }
+  
+  return e_s_rho2_psi_x;
+}
+
+// [[Rcpp::export]]
+
+// Let \psi be the first and second moment of $Y$ on the target
+
+List ComputeAB(NumericVector beta_rho, NumericMatrix sData, NumericMatrix tData,
+                       double piVal, NumericMatrix tDat_ext, NumericVector coef_y_x_s, double sigma_y_x_s,
+                       bool ispar, List parameters, NumericVector xList, NumericVector wList) {
+  int num_of_source = sData.nrow(), num_of_target =tData.nrow(), num_of_cov = tData.ncol();
+  int num_of_total = num_of_source+num_of_target;
+  double c_ps = E_S_RHO_CPP(beta_rho, ispar, parameters);
+  
+  NumericMatrix xMatAll(num_of_total, num_of_cov);
+  for (int i=0; i<num_of_total; i++) {
+    for (int j=0; j<num_of_cov; j++) {
+      if (i < num_of_source)
+      {
+        xMatAll(i,j) = sData(i, j+1);
+      }
+      else
+      {
+        xMatAll(i,j) = tData(i-num_of_source, j);
+      }
+    }
+  }
+  
+  NumericVector e_s_rho2_x = E_S_RHO_X_CPP(beta_rho, 2, xMatAll, coef_y_x_s, sigma_y_x_s, xList, wList);
+  NumericVector e_s_rho_x = E_S_RHO_X_CPP(beta_rho, 1, xMatAll, coef_y_x_s, sigma_y_x_s, xList, wList);
+  NumericVector tau_x_internal = COMPUTE_TAU_CPP(e_s_rho_x, e_s_rho2_x, c_ps, piVal);
+
+  NumericVector e_s_rho_x_ext = E_S_RHO_X_CPP(beta_rho, 1, tDat_ext, coef_y_x_s, sigma_y_x_s, xList, wList);
+  NumericVector e_s_rho2_x_ext = E_S_RHO_X_CPP(beta_rho, 2, tDat_ext, coef_y_x_s, sigma_y_x_s, xList, wList);
+  NumericVector tau_x_external = COMPUTE_TAU_CPP(e_s_rho_x_ext, e_s_rho2_x_ext, c_ps, piVal);
+  double e_t_tau = mean(tau_x_external);
+  
+  NumericVector BOut(num_of_total);
+  for (int i=0; i<num_of_total; i++) {
+    BOut(i) = (e_t_tau-tau_x_internal(i))/(1-e_t_tau);
+  }
+  
+  NumericMatrix AOut(num_of_total, 2);
+  NumericMatrix e_s_rho2_psi_x_ext = E_S_RHO2_PSI_X(beta_rho, tDat_ext, coef_y_x_s, sigma_y_x_s, xList, wList);
+  NumericVector e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(2);
+  
+  int num_of_t_ext = tau_x_external.length();
+  for (int i=0; i<num_of_t_ext; i++) {
+    e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(0) += tau_x_external(i)*e_s_rho2_psi_x_ext(i,0)/e_s_rho2_x_ext(i);
+    e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(1) += tau_x_external(i)*e_s_rho2_psi_x_ext(i,1)/e_s_rho2_x_ext(i);
+  }
+  e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(0) /= num_of_t_ext;
+  e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(1) /= num_of_t_ext;
+  
+  
+  NumericMatrix e_s_rho2_psi_x = E_S_RHO2_PSI_X(beta_rho, xMatAll, coef_y_x_s, sigma_y_x_s, xList, wList);
+  for (int i=0; i<num_of_total; i++) {
+    AOut(i,0) = e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(0)/(1-e_t_tau)-
+      tau_x_internal(i)*(e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(0)/(1-e_t_tau)+e_s_rho2_psi_x(i,0)/e_s_rho2_x(i));
+    AOut(i,1) = e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(1)/(1-e_t_tau)-
+      tau_x_internal(i)*(e_t_tau_e_s_rho2_psi_x_div_e_s_rho2_x(1)/(1-e_t_tau)+e_s_rho2_psi_x(i,1)/e_s_rho2_x(i));
+  }
+  List LOut = List::create(Named("A") = AOut, _["B"] = BOut);
+  
+  return LOut;
+}
