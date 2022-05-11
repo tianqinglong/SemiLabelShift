@@ -345,6 +345,38 @@ NumericVector EstimateBetaVarFunc_CPP(NumericVector beta_rho, NumericMatrix sDat
 }
 
 // [[Rcpp::export]]
+NumericMatrix EstimateBetaCovMat_CPP(NumericVector beta_rho, NumericMatrix sData, NumericMatrix tData,
+                                     double piVal, NumericMatrix tDat_ext, NumericVector coef_y_x_s, double sigma_y_x_s,
+                                     bool ispar, List parameters, NumericVector xList, NumericVector wList) {
+  NumericMatrix Seff = ComputeEfficientScore_CPP(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s,
+                                                 ispar, parameters, xList, wList);
+  NumericMatrix tmpMat(2,2);
+  NumericMatrix outVec(2,2);
+  
+  int num_of_row = Seff.nrow();
+  for(int i=0; i<num_of_row; i++) {
+    tmpMat(0,0) += Seff(i,0)*Seff(i,0);
+    tmpMat(0,1) += Seff(i,0)*Seff(i,1);
+    tmpMat(1,0) += Seff(i,0)*Seff(i,1);
+    tmpMat(1,1) += Seff(i,1)*Seff(i,1);
+  }
+  
+  for(int i=0; i<2; i++){
+    for(int j=0; j<2; j++){
+      tmpMat(i,j) /= num_of_row;
+    }
+  }
+  
+  double det = tmpMat(0,0)*tmpMat(1,1)-tmpMat(1,0)*tmpMat(0,1);
+  outVec(0,0) = tmpMat(1,1)/det;
+  outVec(1,1) = tmpMat(0,0)/det;
+  outVec(0,1) = -tmpMat(1,0)/det;
+  outVec(1,0) = -tmpMat(0,1)/det;
+  
+  return outVec;
+}
+
+// [[Rcpp::export]]
 NumericMatrix E_S_RHO2_PSI_X(NumericVector beta_rho, NumericMatrix tData, NumericVector coef_y_x_s,
                              double sigma_y_x_s, NumericVector xList, NumericVector wList) {
   int i, j;
@@ -435,3 +467,4 @@ List ComputeAB(NumericVector beta_rho, NumericMatrix sData, NumericMatrix tData,
   
   return LOut;
 }
+
