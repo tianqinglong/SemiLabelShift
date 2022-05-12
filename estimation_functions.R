@@ -84,11 +84,9 @@ E_T_D_LOG_RHO_DIV_D_BETA <- function(beta_rho, ispar, parameters, c_ps) {
   if (ispar) {
     Mu_Y_S <- parameters$mu
     Sig_Y_S <- parameters$sigma
-    num_of_rep <- parameters$num_of_repl
-    
-    ghList <- gaussHermiteData(num_of_rep)
-    xList <- ghList$x
-    wList <- ghList$w
+
+    xList <- parameters$xList
+    wList <- parameters$wList
     y_s_external <- sqrt(2)*Sig_Y_S*xList+Mu_Y_S
     
     yMat <- cbind(y_s_external, y_s_external^2)
@@ -261,8 +259,8 @@ E_S_RHO_Y <- function(beta_rho, pwr, ispar, parameters, sData)
     xList <- parameters$xList
     wList <- parameters$wList
     
-    mu_y_s <- parameters$Mu
-    sigma_y_s <- parameters$Sigma
+    mu_y_s <- parameters$mu
+    sigma_y_s <- parameters$sigma
     
     yVec <- sqrt(2)*sigma_y_s*xList+mu_y_s
     yMat <- cbind(yVec, yVec^2)
@@ -358,7 +356,7 @@ COMPUTE_1ST_PART_D_WRAPPER <- function(theta, beta_rho, ispar, parameters, sData
                        tau_x_external, piVal, coef_y_x_s, sigma_y_x_s,
                        e_s_rho2_psi_x_external, e_s_rho2_x_external)
   e_s_rho_x_s <- E_S_RHO_X(beta_rho, 1, sData[,-1], coef_y_x_s, sigma_y_x_s)
-  s_val_s <- Compute_S(beta_rho, sData[,-1], coef_y_x_s, sigma_y_x_s, e_s_rho_x_s, ispar, parameters, c_ps)
+  s_val_s <- Compute_S_CPP(beta_rho, sData[,-1], coef_y_x_s, sigma_y_x_s, e_s_rho_x_s, xList, wList, ispar, parameters, c_ps)
   dVec_first <- COMPUTE_1ST_PART_D(theta, e_s_rho_y, e_s_rho_y2, e_s_rho_y3, c_ps, rho_val_s, h_val_s, s_val_s, piVal)
   
   return(dVec_first)
@@ -375,7 +373,7 @@ COMPUTE_EFFICIENT_IF_THETA <- function(theta, beta_rho, sData, tData,
   yVec <- sData[,"Y"]
   yMat <- cbind(yVec, yVec^2)
   rho_val_s <- exp(c(yMat%*%beta_rho))
-  c_ps <- E_S_RHO(beta_rho, ispar, parameters)
+  c_ps <- E_S_RHO_CPP(beta_rho, ispar, parameters)
   first_part_0 <- 1/piVal*rho_val_s/c_ps*(yVec-theta)
   first_part <- c(first_part_0, rep(0,num_of_target))
   
