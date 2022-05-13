@@ -35,10 +35,10 @@ sigma_y_x_s_true <- sqrt(var_y_x_s_true)
 # Sig_Y_S_hat <- sd(sData[,"Y"])
 ################################################
 beta_rho <- trueBetaRho
-B1 <- 2000 # Monte-Carlo Sample Size
+B1 <- 5000 # Monte-Carlo Sample Size
 # B2 <- 10 # Bootstrap (Perturbation Size)
 
-gh_num <- 10
+gh_num <- 12
 ghxw <- gaussHermiteData(gh_num)
 xList <- ghxw$x
 wList <- ghxw$w
@@ -147,11 +147,11 @@ outCP <- out[,c(1, 2, 3, 10)]
 outCP <- reshape2::melt(outCP, value.name = "CP", measure.vars = c("Cp_Beta_0", "Cp_Beta_1"), variable.name = "Parameter")
 ggplot(aes(x = n, y = CP), data = outCP)+geom_line(aes(col = Parameter, linetype = Parameter))+geom_point(aes(col = Parameter, shape = Parameter))+
   geom_hline(aes(yintercept = 0.95),linetype="dashed")+
-  scale_color_discrete(labels = c(expression(paste(beta[0])), expression(paste(beta[1]))))+
-  scale_shape_discrete(labels = c(expression(paste(beta[0])), expression(paste(beta[1]))))+
-  scale_linetype_discrete(labels = c(expression(paste(beta[0])), expression(paste(beta[1]))))+
-  facet_wrap( ~ ratio, nrow=2, labeller = labeller(ratio = c("0.25" = "m/n=0.25", "0.5" = "m/n=0.5", "1" = "m/n=1",
-                                                             "1.5" = "m/n=1.5", "2" = "m/n=2")))+ylim(c(0.9, 1))+
+  scale_color_discrete(labels = c(expression(paste(beta[1])), expression(paste(beta[2]))))+
+  scale_shape_discrete(labels = c(expression(paste(beta[1])), expression(paste(beta[2]))))+
+  scale_linetype_discrete(labels = c(expression(paste(beta[1])), expression(paste(beta[2]))))+
+  facet_wrap( ~ ratio, nrow=2, labeller = labeller(ratio = c("0.2" = "m/n=0.2", "0.6" = "m/n=0.6", "1" = "m/n=1",
+                                                             "1.4" = "m/n=1.4", "1.8" = "m/n=1.8", "2" = "m/n=2")))+ylim(c(0.9, 1))+
   ylab("Coverage Probability")
 
 # SE and SD
@@ -159,13 +159,15 @@ outSeSd <- out[,c(1, 4, 6, 5, 7, 10)]
 outSeSd <- reshape2::melt(outSeSd, value.name = "SE_or_SD", measure.vars = c("Sd_Beta_0", "Se_Beta_0", "Sd_Beta_1", "Se_Beta_1"))
 outSeSd$Beta <- ifelse(outSeSd$variable %in% c("Sd_Beta_0", "Se_Beta_0"), "beta_0", "beta_1")
 outSeSd$IsSe <- ifelse(outSeSd$variable %in% c("Sd_Beta_0", "Sd_Beta_1"), "Estimated", "Empirical")
-outSeSd$ratio <- factor(outSeSd$ratio, labels = c("0.25" = 1, "0.5" = 2, "1" = 3,"1.5" = 4, "2" = 5))
-outSeSd$FacetBeta <- ifelse(outSeSd$Beta == "beta_0", "beta[0]", "beta[1]")
-outSeSd$Facetratio <- c('m/n*"=0.25"', 'm/n*"=0.5"', 'm/n*"=1"', 'm/n*"=1.5"', 'm/n*"=2"')[outSeSd$ratio]
+outSeSd$IsSe <- factor(outSeSd$IsSe, levels = c("Empirical", "Estimated"), labels = c("Empirical", "Estimated"), ordered = T)
+outSeSd$ratio <- factor(outSeSd$ratio, labels = c("0.2" = 1, "0.6" = 2, "1" = 3,"1.4" = 4, "1.8" = 5, "2" = 6))
+outSeSd$FacetBeta <- ifelse(outSeSd$Beta == "beta_0", "beta[1]", "beta[2]")
+outSeSd$Facetratio <- c('m/n*"=0.2"', 'm/n*"=0.6"', 'm/n*"=1"', 'm/n*"=1.4"', 'm/n*"=1.8"', 'm/n*"=2"')[outSeSd$ratio]
+outSeSd$Facetratio <- factor(outSeSd$Facetratio, levels = c('m/n*"=0.2"', 'm/n*"=0.6"', 'm/n*"=1"', 'm/n*"=1.4"', 'm/n*"=1.8"', 'm/n*"=2"'), ordered = T)
 
 ggplot(aes(x = n, y = SE_or_SD), data = outSeSd)+
   geom_line(aes(col = IsSe, linetype = IsSe))+
-  geom_point(aes(col = IsSe, shape = IsSe))+
+  geom_point(aes(col = IsSe, shape = IsSe), alpha = 0.8)+
   scale_color_discrete(name = "Standard Deviation")+
   scale_shape_discrete(name = "Standard Deviation")+
   scale_linetype_discrete(name = "Standard Deviation")+
@@ -176,13 +178,16 @@ ggplot(aes(x = n, y = SE_or_SD), data = outSeSd)+
 # Bias
 outBias <- out[,c(1, 8, 9, 10)]
 outBias <- reshape2::melt(outBias, value.name = "Bias", measure.vars = c("Bias_0", "Bias_1"))
-outBias$ratio <- factor(outBias$ratio, labels = c("0.25" = 1, "0.5" = 2, "1" = 3,"1.5" = 4, "2" = 5))
-outBias$Facetratio <- c('m/n*"=0.25"', 'm/n*"=0.5"', 'm/n*"=1"', 'm/n*"=1.5"', 'm/n*"=2"')[outBias$ratio]
-outBias$FacetBias <- ifelse(outBias$variable == "Bias_0", "beta[0]", "beta[1]")
+outBias$ratio <- factor(outBias$ratio, labels = c("0.2" = 1, "0.6" = 2, "1" = 3,"1.4" = 4, "1.8" = 5, "2" = 6), ordered = T)
+outBias$Facetratio <- c('m/n*"=0.2"', 'm/n*"=0.6"', 'm/n*"=1"', 'm/n*"=1.4"', 'm/n*"=1.8"', 'm/n*"=2"')[outBias$ratio]
+outBias$Facetratio <- factor(outBias$Facetratio, levels = c('m/n*"=0.2"', 'm/n*"=0.6"', 'm/n*"=1"', 'm/n*"=1.4"', 'm/n*"=1.8"', 'm/n*"=2"'), ordered = T)
+outBias$FacetBias <- ifelse(outBias$variable == "Bias_0", "beta[1]", "beta[2]")
 ggplot(aes(x = n, y = Bias), data = outBias)+geom_line(aes(col = variable))+
   geom_point(aes(col = variable))+
   facet_grid(FacetBias~Facetratio, scales = "free_y", labeller = label_parsed)+
   scale_color_discrete(name = "Parameter",
-                       labels = c(expression(paste(beta[0])), expression(paste(beta[1]))))+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
+                       labels = c(expression(paste(beta[1])), expression(paste(beta[2]))))+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))+
+  geom_hline(aes(yintercept = 0),linetype="dashed")+
+  theme(legend.position="none")
 ################################################
