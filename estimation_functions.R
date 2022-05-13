@@ -84,11 +84,9 @@ E_T_D_LOG_RHO_DIV_D_BETA <- function(beta_rho, ispar, parameters, c_ps) {
   if (ispar) {
     Mu_Y_S <- parameters$mu
     Sig_Y_S <- parameters$sigma
-    num_of_rep <- parameters$num_of_repl
-    
-    ghList <- gaussHermiteData(num_of_rep)
-    xList <- ghList$x
-    wList <- ghList$w
+
+    xList <- parameters$xList
+    wList <- parameters$wList
     y_s_external <- sqrt(2)*Sig_Y_S*xList+Mu_Y_S
     
     yMat <- cbind(y_s_external, y_s_external^2)
@@ -225,25 +223,6 @@ EstimateBetaVarFunc <- function(beta_rho, sData, tData, piVal, tDat_ext, coef_y_
   return(sqrt(diag(out)))
 }
 
-# This function is for the inference of Beta
-EstimateBetaVarCenterFunc <- function(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList) {
-  SEffMat <- ComputeEfficientScore_CPP(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
-  
-  SEffMat[,1] <- SEffMat[,1]-mean(SEffMat[,1])
-  SEffMat[,2] <- SEffMat[,2]-mean(SEffMat[,2])
-  
-  num_of_total <- nrow(sData)+nrow(tData)
-  out <- matrix(0, ncol = 2, nrow = 2)
-  for (i in 1:num_of_total) {
-    tmp <- matrix(SEffMat[i,], ncol = 1)
-    out <- out + tmp %*% t(tmp)
-  }
-  out <- out/num_of_total
-  out <- solve(out)/num_of_total
-  
-  return(sqrt(diag(out)))
-}
-
 # This function repeat the pertubations
 ComputeRandomizedWeightBootstrap <- function(beta_rho, sData, tData, piVal, tDat_ext,
                                              coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList, B2 = 1000) {
@@ -260,4 +239,173 @@ ComputeRandomizedWeightBootstrap <- function(beta_rho, sData, tData, piVal, tDat
   }
   
   return(outMat)
+}
+
+#################################
+# Functions for estimating \psi #
+#################################
+
+COMPUTE_B <- function(tau_all, e_t_tau, c_ps, piVal) {
+  out <- (e_t_tau-tau_all)/(1-e_t_tau)
+  
+  return(out)
+}
+
+E_S_RHO_Y <- function(beta_rho, pwr, ispar, parameters, sData)
+{
+  beta_rho <- matrix(beta_rho, ncol = 1)
+  if(ispar)
+  {
+    xList <- parameters$xList
+    wList <- parameters$wList
+    
+    mu_y_s <- parameters$mu
+    sigma_y_s <- parameters$sigma
+    
+    yVec <- sqrt(2)*sigma_y_s*xList+mu_y_s
+    yMat <- cbind(yVec, yVec^2)
+    
+    e_s_rho_y <- sum(wList*exp(c(yMat%*%beta_rho))*(yVec^pwr))/sqrt(pi)
+    
+    return(mean(e_s_rho_y))
+  }
+  
+  yVec <- sData[,"Y"]
+  yMat <- cbind(yVec, yVec^2)
+  e_s_rho_y <- exp(c(yMat%*%beta_rho))*(yVec^pwr)
+  
+  return(mean(e_s_rho_y))
+}
+
+E_S_RHO2_PSI_X <- function(beta_rho, xmat_no_intercept, coef_y_x_s, sigma_y_x_s, xList, wList) {
+  coef_y_x_s <- matrix(coef_y_x_s, ncol = 1)
+  x_mat <- cbind(1, xmat_no_intercept)
+  mean_y_x_s <- c(x_mat %*%  coef_y_x_s)
+  beta_rho <- matrix(beta_rho, ncol = 1)
+  
+  num_of_x <- nrow(xmat_no_intercept)
+  outMat <- numeric(num_of_x)
+  for (i in 1:num_of_x) {
+    y_plus_error <- sqrt(2)*c(sigma_y_x_s)*xList+c(mean_y_x_s)[i]
+    yMat <- cbind(y_plus_error, y_plus_error^2)
+    rho_values <- c(yMat %*% beta_rho)
+    outMat[i] <- sum(wList*exp(2*rho_values)*y_plus_error)/sqrt(pi)
+  }
+  
+  return(outMat)
+}
+
+COMPUTE_A <- function(beta_rho, e_t_tau,
+                      tau_x_internal, tau_x_external,
+                      e_s_rho2_psi_x_internal, e_s_rho2_x_internal,
+                      e_s_rho2_psi_x_external, e_s_rho2_x_external) {
+  tmp <- mean(tau_x_external*e_s_rho2_psi_x_external/e_s_rho2_x_external)
+  aVec <- 1/(1-e_t_tau)*tmp-tau_x_internal*(1/(1-e_t_tau)*tmp+e_s_rho2_psi_x_internal/e_s_rho2_x_internal)
+  
+  return(aVec)
+}
+
+COMPUTE_H <- function(beta_rho, theta, c_ps, sData, e_t_tau, tau_x_external, piVal,
+                      coef_y_x_s, sigma_y_x_s, e_s_rho2_psi_x_external, e_s_rho2_x_external)
+{
+  beta_rho <- matrix(beta_rho, ncol = 1)
+  yVec <- sData[,"Y"]
+  xMat <- sData[,-1]
+  
+  yMat <- cbind(yVec, yVec^2)
+  rho_val <- exp(c(yMat%*%beta_rho))
+  
+  e_s_rho2_x_internal <- E_S_RHO_X(beta_rho, 2, xMat, coef_y_x_s, sigma_y_x_s)
+  e_s_rho_x_internal <- E_S_RHO_X(beta_rho, 1, xMat, coef_y_x_s, sigma_y_x_s)
+  tau_x_internal <- COMPUTE_TAU(e_s_rho_x_internal, e_s_rho2_x_internal, c_ps, piVal)
+  
+  e_s_rho2_psi_x_internal <- E_S_RHO2_PSI_X(beta_rho, xMat, coef_y_x_s, sigma_y_x_s, xList, wList)
+  COMPUTE_A(beta_rho, e_t_tau, tau_x_internal, tau_x_external, e_s_rho2_psi_x_internal, e_s_rho2_x_internal,
+            e_s_rho2_psi_x_external, e_s_rho2_x_external) -> aVec
+  COMPUTE_B(tau_x_internal, e_t_tau, c_ps, piVal) -> bVec
+  outVec <- 1/piVal*rho_val/c_ps*(yVec-theta+aVec-bVec*theta)
+  
+  return(outVec)
+}
+
+COMPUTE_1ST_PART_D <- function(theta, e_s_rho_y, e_s_rho_y2, e_s_rho_y3, c_ps, rho_val_s, h_val_s, s_val_s, piVal)
+{
+  first_part <- matrix(c(e_s_rho_y2, e_s_rho_y3), nrow = 1)/c_ps
+  second_part <- -matrix(c(e_s_rho_y, e_s_rho_y2), nrow = 1)/c_ps*theta
+  
+  third_part <- matrix(rho_val_s*h_val_s, ncol = 2, nrow = length(rho_val_s), byrow = F)*
+    s_val_s
+  third_part <- -(1-piVal)*colMeans(third_part)/c_ps
+  
+  return(first_part+second_part+third_part)
+}
+
+COMPUTE_1ST_PART_D_WRAPPER <- function(theta, beta_rho, ispar, parameters, sData,
+                                       c_ps, tau_x_external, piVal, coef_y_x_s, sigma_y_x_s,
+                                       e_s_rho2_psi_x_external, e_s_rho2_x_external) {
+  e_s_rho_y <- E_S_RHO_Y(beta_rho, 1, ispar, parameters, sData)
+  e_s_rho_y2 <- E_S_RHO_Y(beta_rho, 2, ispar, parameters, sData)
+  e_s_rho_y3 <- E_S_RHO_Y(beta_rho, 3, ispar, parameters, sData)
+  
+  yVec <- sData[,"Y"]
+  yMat <- cbind(yVec, yVec^2)
+  
+  beta_rho <- matrix(beta_rho, ncol = 1)
+  rho_val_s <- exp(c(yMat%*%beta_rho))
+  h_val_s <- COMPUTE_H(beta_rho, theta, c_ps, sData, e_t_tau,
+                       tau_x_external, piVal, coef_y_x_s, sigma_y_x_s,
+                       e_s_rho2_psi_x_external, e_s_rho2_x_external)
+  e_s_rho_x_s <- E_S_RHO_X(beta_rho, 1, sData[,-1], coef_y_x_s, sigma_y_x_s)
+  s_val_s <- Compute_S_CPP(beta_rho, sData[,-1], coef_y_x_s, sigma_y_x_s, e_s_rho_x_s, xList, wList, ispar, parameters, c_ps)
+  dVec_first <- COMPUTE_1ST_PART_D(theta, e_s_rho_y, e_s_rho_y2, e_s_rho_y3, c_ps, rho_val_s, h_val_s, s_val_s, piVal)
+  
+  return(dVec_first)
+}
+
+COMPUTE_EFFICIENT_IF_THETA <- function(theta, beta_rho, sData, tData,
+                                       ispar, parameters, piVal,
+                                       tDat_ext, coef_y_x_s, sigma_y_x_s,
+                                       xList, wList) {
+  num_of_source <- nrow(sData)
+  num_of_target <- nrow(tData)
+  
+  # First Part
+  yVec <- sData[,"Y"]
+  yMat <- cbind(yVec, yVec^2)
+  rho_val_s <- exp(c(yMat%*%beta_rho))
+  c_ps <- E_S_RHO_CPP(beta_rho, ispar, parameters)
+  first_part_0 <- 1/piVal*rho_val_s/c_ps*(yVec-theta)
+  first_part <- c(first_part_0, rep(0,num_of_target))
+  
+  # Second Part
+  second_part_0 <- c(1/piVal*rho_val_s/c_ps, -rep(1/(1-piVal),num_of_target))
+  e_s_rho_x_ext <- E_S_RHO_X(beta_rho, 1, tDat_ext, coef_y_x_s, sigma_y_x_s)
+  e_s_rho2_x_ext <- E_S_RHO_X(beta_rho, 2, tDat_ext, coef_y_x_s, sigma_y_x_s)
+  tau_x_external <- COMPUTE_TAU(e_s_rho_x_ext, e_s_rho2_x_ext, c_ps, piVal)
+  e_t_tau <- mean(tau_x_external)
+  
+  xMatAll <- rbind(sData[,-1], tData)
+  e_s_rho2_x_all <- E_S_RHO_X(beta_rho, 2, xMatAll, coef_y_x_s, sigma_y_x_s)
+  e_s_rho_x_all <- E_S_RHO_X(beta_rho, 1, xMatAll, coef_y_x_s, sigma_y_x_s)
+  tau_x_all <- COMPUTE_TAU(e_s_rho_x, e_s_rho2_x, c_ps, piVal)
+  
+  e_s_rho2_psi_x_all <- E_S_RHO2_PSI_X(beta_rho, xMatAll, coef_y_x_s, sigma_y_x_s, xList, wList)
+  e_s_rho2_psi_x_ext <- E_S_RHO2_PSI_X(beta_rho, tDat_ext, coef_y_x_s, sigma_y_x_s, xList, wList)
+  
+  aVec <- COMPUTE_A(beta_rho, e_t_tau, tau_x_all, tau_x_external,
+                    e_s_rho2_psi_x_all, e_s_rho2_x_all, e_s_rho2_psi_x_ext, e_s_rho2_x_ext)
+  bVec <- COMPUTE_B(tau_x_all, e_t_tau, c_ps)
+  second_part <- second_part_0*(aVec-bVec)
+  
+  d1st <- COMPUTE_1ST_PART_D_WRAPPER(theta, beta_rho, ispar, parameters,
+                                     sData, c_ps, tau_x_external, piVal,
+                                     coef_y_x_s, sigma_y_x_s, e_s_rho2_psi_x_ext, e_s_rho2_x_ext)
+  covMat <- EstimateBetaCovMat_CPP(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
+  dMat <- matrix(d1st, nrow = 1) %*% covMat
+  sEff <- ComputeEfficientScore_CPP(beta_rho, sData, tData, piVal, tDat_ext, coef_y_x_s, sigma_y_x_s, ispar, parameters, xList, wList)
+  third_part <- t(dMat %*% t(sEff))
+  
+  phi <- c(first_part)+c(second_part)+c(third_part)
+  
+  return(phi)
 }
