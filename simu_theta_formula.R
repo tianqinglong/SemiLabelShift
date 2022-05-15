@@ -7,7 +7,7 @@
   sourceCpp("fast_estimation_functions.cpp")
   ################################################
   # Factors #
-  n <- 500
+  n <- 5000
   mnratio <- 1
   ################################################
   # Data Generation #
