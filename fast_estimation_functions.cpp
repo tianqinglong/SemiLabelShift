@@ -701,6 +701,20 @@ double COMPUTE_THETA_CPP(int num_of_target,
 
 // [[Rcpp::export]]
 
+double COMPUTE_THETA_NAIVE(NumericVector betaHat, NumericVector rhoValSource,
+                           NumericVector yVec, double c_ps) {
+  double out = 0;
+  int num_of_s = yVec.length();
+  for (int i=0; i<num_of_s; i++) {
+    out += yVec(i)*rhoValSource(i);
+  }
+  out /= num_of_s*c_ps;
+  
+  return out;
+}
+
+// [[Rcpp::export]]
+
 double COMPUTE_EFFICIENT_IF_FOR_THETA_OPTIM_CPP(double theta,
                                                int num_of_target,
                                                double piVal, NumericVector rhoValSource,

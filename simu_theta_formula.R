@@ -7,7 +7,7 @@
   sourceCpp("fast_estimation_functions.cpp")
   ################################################
   # Factors #
-  n <- 5000
+  n <- 500
   mnratio <- 1
   ################################################
   # Data Generation #
@@ -105,6 +105,8 @@
                                   e_s_rho2_psi_x_internal_all, e_s_rho2_x_all,
                                   e_s_rho2_psi_x_external, e_s_rho2_x_ext)
     
+    thetaNHat <- COMPUTE_THETA_NAIVE(betaHat, rhoValSource, yVec, c_ps)
+    
     Phi_Theta <- COMPUTE_EFFICIENT_IF_FOR_THETA_CPP(thetaHat, num_of_target,
       piVal, rhoValSource, c_ps, yVec, betaHat, e_t_tau, tau_x_internal_all, tau_x_external,
       e_s_rho2_psi_x_internal_all, e_s_rho2_x_all, e_s_rho2_psi_x_external,
@@ -118,9 +120,11 @@
     CI_Upper <- thetaHat+1.96*sd_est
     CP <- (Mu_Y_T >= CI_Lower) & (Mu_Y_T <= CI_Upper)
     
-    return(list(ThetaHat=thetaHat, SdHat=sd_est, Bias = thetaHat-Mu_Y_T, CP = CP))
+    return(list(ThetaHat=thetaHat, SdHat=sd_est, Bias = thetaHat-Mu_Y_T, CP = CP,
+                ThetaNaive = thetaNHat))
   }, mc.cores = detectCores()
 )
 
 sapply(results_output, function(x) {x$ThetaHat}) %>% sd
+sapply(results_output, function(x) {x$ThetaNaive}) %>% sd
 sapply(results_output, function(x) {x$SdHat}) %>% mean
