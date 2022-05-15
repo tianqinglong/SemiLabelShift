@@ -7,7 +7,7 @@
   sourceCpp("fast_estimation_functions.cpp")
   ################################################
   # Factors #
-  n <- 2000
+  n <- 500
   mnratio <- 1
   ################################################
   # Data Generation #
@@ -91,24 +91,33 @@
     SEff <- ComputeEfficientScore_CPP(betaHat, sData, tData, piVal, tData,
                                       coef_y_x_s_hat, sigma_y_x_s_hat, ispar, GH_Materials,
                                       xList, wList)
-    optim(Mu_Y_T, COMPUTE_EFFICIENT_IF_FOR_THETA_OPTIM_CPP, num_of_target = num_of_target,
-      piVal = piVal, rhoValSource=rhoValSource, c_ps = c_ps, yVec = yVec, beta_rho = betaHat, e_t_tau=e_t_tau, tau_x_internal_all=tau_x_internal_all, tau_x_external=tau_x_external,
-      e_s_rho2_psi_x_internal_all=e_s_rho2_psi_x_internal_all, e_s_rho2_x_internal_all = e_s_rho2_x_all, e_s_rho2_psi_x_external = e_s_rho2_psi_x_external,
-      e_s_rho2_x_external = e_s_rho2_x_ext, MatInv = MatInv, ispar = ispar, parameters = GH_Materials, sData = sData, coef_y_x_s=coef_y_x_s_hat, sigma_y_x_s=sigma_y_x_s_hat,
-      e_s_rho2_psi_x_internal_source=e_s_rho2_psi_x_internal_source, e_s_rho2_x_internal_source=e_s_rho2_x_internal_source, tau_for_x_source=tau_for_x_source,
-      e_s_rho_x_source = e_s_rho_x_internal_source, xList = xList, wList = wList, SEff = SEff, method = "Brent", lower = -100, upper = 100) -> thetaFit
-    thetaHat <- thetaFit$par
+    
+    # optim(Mu_Y_T, COMPUTE_EFFICIENT_IF_FOR_THETA_OPTIM_CPP, num_of_target = num_of_target,
+    #       piVal = piVal, rhoValSource=rhoValSource, c_ps = c_ps, yVec = yVec, beta_rho = betaHat, e_t_tau=e_t_tau, tau_x_internal_all=tau_x_internal_all, tau_x_external=tau_x_external,
+    #       e_s_rho2_psi_x_internal_all=e_s_rho2_psi_x_internal_all, e_s_rho2_x_internal_all = e_s_rho2_x_all, e_s_rho2_psi_x_external = e_s_rho2_psi_x_external,
+    #       e_s_rho2_x_external = e_s_rho2_x_ext, MatInv = MatInv, ispar = ispar, parameters = GH_Materials, sData = sData, coef_y_x_s=coef_y_x_s_hat, sigma_y_x_s=sigma_y_x_s_hat,
+    #       e_s_rho2_psi_x_internal_source=e_s_rho2_psi_x_internal_source, e_s_rho2_x_internal_source=e_s_rho2_x_internal_source, tau_for_x_source=tau_for_x_source,
+    #       e_s_rho_x_source = e_s_rho_x_internal_source, xList = xList, wList = wList, SEff = SEff, method = "Brent", lower = -100, upper = 100) -> thetaFit
+    # thetaHat <- thetaFit$par
+    
+    thetaHat <- COMPUTE_THETA_CPP(num_of_target, piVal, rhoValSource, c_ps, yVec,
+                                  betaHat, e_t_tau, tau_x_internal_all, tau_x_external,
+                                  e_s_rho2_psi_x_internal_all, e_s_rho2_x_all,
+                                  e_s_rho2_psi_x_external, e_s_rho2_x_ext)
+    
     Phi_Theta <- COMPUTE_EFFICIENT_IF_FOR_THETA_CPP(thetaHat, num_of_target,
       piVal, rhoValSource, c_ps, yVec, betaHat, e_t_tau, tau_x_internal_all, tau_x_external,
       e_s_rho2_psi_x_internal_all, e_s_rho2_x_all, e_s_rho2_psi_x_external,
       e_s_rho2_x_ext, MatInv, ispar, GH_Materials, sData, coef_y_x_s_hat, sigma_y_x_s_hat,
       e_s_rho2_psi_x_internal_source, e_s_rho2_x_internal_source, tau_for_x_source,
       e_s_rho_x_internal_source, xList, wList, SEff)
+    
     var_est <- mean(Phi_Theta^2)
     sd_est <- sqrt(var_est/(n+m))
     CI_Lower <- thetaHat-1.96*sd_est
     CI_Upper <- thetaHat+1.96*sd_est
     CP <- (Mu_Y_T >= CI_Lower) & (Mu_Y_T <= CI_Upper)
+    
     return(list(ThetaHat=thetaHat, SdHat=sd_est, Bias = thetaHat-Mu_Y_T, CP = CP))
   }, mc.cores = detectCores()
 )
